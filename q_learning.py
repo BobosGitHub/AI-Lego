@@ -38,8 +38,6 @@ def run_episode(env, policy=None, render=False):
 def obs_to_state(env, obs):
     """ Maps an observation to state """
     a = int((obs[1]+2)/4*n_states)
-    b = float((obs[2]+24.0)/48.0)
-    b = ((b-0.5)*50.0)+0.5
     b = int(b*n_states)
     print(str(a)+" "+str(b))
     a = max(0, min(n_states-1, a))

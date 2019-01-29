@@ -1,4 +1,5 @@
 {
     "files.eol": "\n",
-    "ev3devBrowser.download.exclude": "{**/.*,LICENSE,README.md}"
+    "ev3devBrowser.download.exclude": "{**/.*,LICENSE,README.md}",
+    "python.pythonPath": "C:\\Users\\HP 2170p\\AppData\\Local\\Programs\\Python\\Python37-32\\python.exe"
 }

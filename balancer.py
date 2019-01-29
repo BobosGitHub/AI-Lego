@@ -6,7 +6,7 @@ import sys
 import time
 import ev3dev2
 from ev3dev2.motor import LargeMotor, OUTPUT_A, OUTPUT_B, SpeedPercent, MoveTank
-
+from ev3dev2.sensor.lego import GyroSensor
 # state constants
 ON = True
 OFF = False
@@ -40,6 +40,9 @@ def set_font(name):
     '''
     os.system('setfont ' + name)
 
+def get_gyro_angle(sensor):
+    debug_print("Angle: " + str(sensor.angle))
+    debug_print("Rate: " + str(sensor.rate))
 
 def main():
     '''The main function of our program'''
@@ -50,8 +53,12 @@ def main():
     set_font('Lat15-Terminus24x12')
 
     # print something to the screen of the device
-    print('Hello World!')
-
+    print('ALL YOUR BASE ARE BELONG TO US')
+    gs = GyroSensor()
+    
+    while True:
+        get_gyro_angle(gs)
+        time.sleep(0.5)
     # print something to the output panel in VS Code
     debug_print('Hello VS Code!')
 
