@@ -6,7 +6,7 @@ import time
 import math
 import ev3dev2
 from ev3dev2.motor import LargeMotor, OUTPUT_A, OUTPUT_B, SpeedPercent, MoveTank
-from ev3dev2.sensor.lego import GyroSensor
+from ev3dev2.sensor.lego import UltrasonicSensor
 # state constants
 ON = True
 OFF = False
@@ -43,34 +43,34 @@ def set_font(name):
 
 """ Learning balancer class """
 class Balancer:
-    def __init__(self, fail_angle, n_states):
-        self.gs = GyroSensor()
+    def __init__(self, fail_distance, n_states):
+        self.us = UltrasonicSensor()
         time.sleep(0.5)
-        c = self.gs.reset()
-        self.starting_angle, self.starting_rate = self.gs.angle_and_rate
-        self.fail_angle = fail_angle
+        self.starting_distance = self.us.distance_centimeters
+        self.fail_distance = fail_distance
         self.n_states = n_states
-        #self.q_table = np.zeros((n_states, n_states, 2))
+        
+        self.q_table = np.zeros((n_states, 2))
 
-    def observation_to_state(self, angle, rate):
-        a = math.floor(angle / (2 * self.fail_angle) * self.n_states)
+    def observation_to_state(self, distance):
+        a = math.floor((distance / (2 * self.fail_distance) + 0.5) * self.n_states)
         b = 0
         return a, b    
 
     def run_episode(self):
         # Wait until the robot is upright
-        while 5 < abs(self.starting_angle - self.gs.angle()):
-            print("Waiting "+str(self.starting_angle - self.gs.angle()))
+        while 2 < abs(self.starting_distance - self.us.distance_centimeters):
+            print("Waiting "+str(self.starting_distance - self.us.distance_centimeters))
 
         # Run until the robot isn't balanced
         while True:
-            angle = self.starting_angle - self.gs.angle()
-            rate = self.starting_rate - self.gs.rate()
-            print("a "+str(self.gs.angle())+"\nR "+str(self.starting_angle))
-            if self.fail_angle < abs(angle) and False:
+            distance = self.starting_distance - self.us.distance_centimeters
+            
+            print("D "+str(self.us.distance_centimeters))
+            if self.fail_distance < abs(distance):
                 break
 
-            a, b = self.observation_to_state(angle, rate)
+            a, b = self.observation_to_state(distance)
         
 
 
@@ -86,7 +86,7 @@ def main():
     set_font('Lat15-Terminus24x12'),
 
     # Create balancer
-    balancer = Balancer(45, 20)
+    balancer = Balancer(10, 20)
 
     for i in range(100):
         balancer.run_episode()
