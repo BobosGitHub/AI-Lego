@@ -4,6 +4,7 @@ import os
 import sys
 import time
 import math
+import random
 import ev3dev2
 from ev3dev2.motor import LargeMotor, OUTPUT_A, OUTPUT_B, SpeedPercent, MoveTank
 from ev3dev2.sensor.lego import UltrasonicSensor
@@ -50,12 +51,21 @@ class Balancer:
         self.fail_distance = fail_distance
         self.n_states = n_states
         
-        self.q_table = np.zeros((n_states, 2))
+        self.q_table = [[0, 0] for i in range(0, n_states)]
 
     def observation_to_state(self, distance):
         a = math.floor((distance / (2 * self.fail_distance) + 0.5) * self.n_states)
         b = 0
-        return a, b    
+        return a, b
+
+    def find_best_action(a):
+        max_val = -100000
+        action = 0
+        for i in range(len(self.q_table[a])):
+            if max_val < self.q_table[a][i]:
+                action = i
+                max_val = self.q_table[a][i]
+        return action, max_val
 
     def run_episode(self):
         # Wait until the robot is upright
@@ -71,7 +81,28 @@ class Balancer:
                 break
 
             a, b = self.observation_to_state(distance)
-        
+
+            if random.random() < 0.2:
+                action = random.randint(0, 1)
+                value = self.q_table[a][action]
+            else:
+                action, value = self.find_best_action(a)
+                
+            
+            # TODO: tell motor
+            # Wait for phisics to do its thang
+
+            eta = 0.5
+            gamma = 0.5
+            
+            new_distance = self.starting_distance - self.us.distance_centimeters
+            reward = -abs(new_distance)
+            a_, b_ = self.observation_to_state(new_distance)
+
+            new_best_action, new_value = self.find_best_action(a_)
+            q_table[a][action] += eta * (reward + gamma *  new_value - value])
+
+
 
 
 
@@ -86,7 +117,7 @@ def main():
     set_font('Lat15-Terminus24x12'),
 
     # Create balancer
-    balancer = Balancer(10, 20)
+    balancer = Balancer(10, 10)
 
     for i in range(100):
         balancer.run_episode()
