@@ -5,9 +5,12 @@ import sys
 import time
 import math
 import random
+from time import sleep
 import ev3dev2
 from ev3dev2.motor import LargeMotor, OUTPUT_A, OUTPUT_B, SpeedPercent, MoveTank
 from ev3dev2.sensor.lego import UltrasonicSensor
+from ev3dev2.sensor.lego import ColorSensor
+from ev3dev.ev3 import *
 # state constants
 ON = True
 OFF = False
@@ -44,45 +47,74 @@ def set_font(name):
 
 """ Learning balancer class """
 class Balancer:
-    def __init__(self, fail_distance, n_states):
+    def __init__(self, fail_distance_max, fail_distance_min, n_states):
         self.us = UltrasonicSensor()
+        self.ir = ColorSensor()
+
         time.sleep(0.5)
-        self.starting_distance = self.us.distance_centimeters
-        self.fail_distance = fail_distance
+        self.starting_distance_ir = self.ir.reflected_light_intensity
+        #self.starting_distance = self.us.distance_centimeters
+        #self.fail_distance_ir = fail_distance
+        self.fail_distance_max = fail_distance_max
+        self.fail_distance_min = fail_distance_min
         self.n_states = n_states
-        
-        self.q_table = [[0, 0] for i in range(0, n_states)]
+        ## TODO: Other values than zero. Random values perhaps.
+        self.q_table = [[random.random(), random.random()] for i in range(0, n_states)]
 
     def observation_to_state(self, distance):
-        a = math.floor((distance / (2 * self.fail_distance) + 0.5) * self.n_states)
+        a = math.floor(((distance - self.fail_distance_min) / (self.fail_distance_max - self.fail_distance_min)) * self.n_states)
+        if a == self.n_states:
+            a -= 1
         b = 0
+        if a < 0:
+            a = 0
+        elif a > self.n_states:
+            a = self.n_states - 1
         return a, b
 
-    def find_best_action(a):
+    def find_best_action(self, a):
         max_val = -100000
         action = 0
         for i in range(len(self.q_table[a])):
             if max_val < self.q_table[a][i]:
                 action = i
                 max_val = self.q_table[a][i]
+        if action == 0:
+            debug_print("0: "+str(self.q_table[a][0])+" "+str(self.q_table[a][1]))
+        else:
+            debug_print("1: "+str(self.q_table[a][0])+" "+str(self.q_table[a][1]))
         return action, max_val
 
     def run_episode(self):
+        sound = Sound()
+        #self.us.distance_centimeters
+        while False:
+            debug_print(self.starting_distance_ir - self.ir.reflected_light_intensity)
+            sound.tone(100 * abs(self.starting_distance_ir - self.ir.reflected_light_intensity)+100, 50)
+            sleep(0.5)
+        
         # Wait until the robot is upright
-        while 2 < abs(self.starting_distance - self.us.distance_centimeters):
-            print("Waiting "+str(self.starting_distance - self.us.distance_centimeters))
+        while 3 < abs(self.starting_distance_ir - self.ir.reflected_light_intensity):
+            print("Waiting "+str(round(self.starting_distance_ir - self.ir.reflected_light_intensity, 2)))
 
+       
         # Run until the robot isn't balanced
         while True:
-            distance = self.starting_distance - self.us.distance_centimeters
+            #sleep(1)
+            distance = self.starting_distance_ir - self.ir.reflected_light_intensity
             
-            print("D "+str(self.us.distance_centimeters))
-            if self.fail_distance < abs(distance):
+            print("D "+str(self.ir.reflected_light_intensity))
+            if self.fail_distance_min > distance or self.fail_distance_max < distance:
+                sound.tone(200, 200).wait()
+                
                 break
 
             a, b = self.observation_to_state(distance)
+            debug_print(str(a) +"  "+ str(distance))
 
-            if random.random() < 0.2:
+
+
+            if random.random() < 0.15:
                 action = random.randint(0, 1)
                 value = self.q_table[a][action]
             else:
@@ -90,17 +122,26 @@ class Balancer:
                 
             
             # TODO: tell motor
-            # Wait for phisics to do its thang
-
-            eta = 0.5
-            gamma = 0.5
+            motor = LargeMotor('outA')
             
-            new_distance = self.starting_distance - self.us.distance_centimeters
-            reward = -abs(new_distance)
+            #if action == 1:
+            #    motor.run_timed(time_sp = 250, speed_sp = -120, stop_action = 'brake')
+            #else:
+            #    motor.run_timed(time_sp = 250, speed_sp = 120, stop_action = 'brake')
+        
+            # Wait for physics to do its thang
+
+            eta = 0.1
+            gamma = 0.2
+            
+            new_distance = self.starting_distance_ir - self.ir.reflected_light_intensity
+            reward = -abs(new_distance) + 4
             a_, b_ = self.observation_to_state(new_distance)
 
             new_best_action, new_value = self.find_best_action(a_)
-            q_table[a][action] += eta * (reward + gamma *  new_value - value])
+            self.q_table[a][action] += eta * (reward + gamma *  new_value - value)
+            sound.tone(-200 * (reward-4)+100,50)
+            #debug_print(self.q_table[a][action])
 
 
 
@@ -117,9 +158,9 @@ def main():
     set_font('Lat15-Terminus24x12'),
 
     # Create balancer
-    balancer = Balancer(10, 10)
+    balancer = Balancer(6, -13, 15)
 
-    for i in range(100):
+    while True:
         balancer.run_episode()
 
     # print something to the screen of the device
